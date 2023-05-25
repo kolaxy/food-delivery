@@ -1,69 +1,151 @@
 from django.shortcuts import render
 from django.http import HttpResponse
 from .models import Restaurant, Dish, Order, OrderDetail
-from rest_framework import generics
-from .serializers import RestaurantSerializer, DishSerializer, OrderSerializer, OrderDetailSerializer
+from rest_framework import generics, viewsets
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from .serializers import RestaurantSerializer, DishSerializer, OrderSerializer, OrderDetailSerializer, \
+    DetailRestaurantSerializer
+from rest_framework import status
+from backend.models import Restaurant, Order, OrderDetail, Dish
 
 
 def home(request):
     return HttpResponse('<h1>FOOD DELIVERY</h1>')
 
 
-class RestaurantAPIList(generics.ListCreateAPIView):
+class DetailRestaurantAPIList(generics.ListCreateAPIView):
+    """Restaurant menu ( + DISH objects) ( ALL )"""
     queryset = Restaurant.objects.all()
+    serializer_class = DetailRestaurantSerializer
+
+    def get_queryset(self):
+        return Restaurant.objects.filter(pk=self.kwargs['pk'], is_archive=False)
+
+
+class RestaurantAPIList(generics.ListCreateAPIView):
+    """Restaurants list ( ALL )"""
+    queryset = Restaurant.objects.filter(is_archive=False)
     serializer_class = RestaurantSerializer
 
 
 class RestaurantAPIUpdate(generics.RetrieveUpdateAPIView):
-    queryset = Restaurant.objects.all()
+    """Restaurant info update ( ADMIN + RESTAURANT USER )"""
+    queryset = Restaurant.objects.filter(is_archive=False)
     serializer_class = RestaurantSerializer
 
 
 class RestaurantAPIDestroy(generics.RetrieveDestroyAPIView):
-    queryset = Restaurant.objects.all()
+    """Restaurant delete ( ADMIN )"""
+    queryset = Restaurant.objects.filter(is_archive=False)
     serializer_class = RestaurantSerializer
+
+    def delete(self, request, *args, **kwargs):
+        instance = self.get_object()
+        instance.is_archive = True
+        instance.save()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class DishAPIList(generics.ListCreateAPIView):
+    """Dish list + detail, ( ALL )"""
     queryset = Dish.objects.all()
     serializer_class = DishSerializer
 
+    def get_queryset(self):
+        if self.request.query_params.get('restaurant', None):
+            return Dish.objects.filter(restaurant=self.request.query_params['restaurant'], is_archive=False)
+        return Dish.objects.filter(is_archive=False)
+
 
 class DishAPIUpdate(generics.RetrieveUpdateAPIView):
+    """Dish update ( ADMIN + RESTAURANT USER )"""
     queryset = Dish.objects.all()
     serializer_class = DishSerializer
 
 
 class DishAPIDestroy(generics.RetrieveDestroyAPIView):
+    """Dish delete ( ADMIN + RESTAURANT USER )"""
     queryset = Dish.objects.all()
     serializer_class = DishSerializer
 
+    def delete(self, request, *args, **kwargs):
+        instance = self.get_object()
+        instance.is_archive = True
+        instance.save()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
 
 class OrderAPIList(generics.ListCreateAPIView):
+    """Order lists ( user's BY USER ID, all restaurant id BY RESTAURANT ID, all for ADMIN )"""
     queryset = Order.objects.all()
     serializer_class = OrderSerializer
 
 
 class OrderAPIUpdate(generics.RetrieveUpdateAPIView):
+    """Order detail ( + Dishes ), ( YES to user BY USER ID, YES to restaurant BY RESTAURANT ID, YES for ADMIN ) """
     queryset = Order.objects.all()
     serializer_class = OrderSerializer
 
 
 class OrderAPIDestroy(generics.RetrieveDestroyAPIView):
+    """Order delete ( YES to restaurant by RESTAURANT ID, YES FOR ADMIN )"""
     queryset = Order.objects.all()
     serializer_class = OrderSerializer
 
+    def delete(self, request, *args, **kwargs):
+        instance = self.get_object()
+        instance.is_archive = True
+        instance.save()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
 
 class OrderDetailAPIList(generics.ListCreateAPIView):
+    """OrderDetail create ( YES to user BY USER ID, YES to restaurant BY RESTAURANT ID, YES for ADMIN )"""
     queryset = OrderDetail.objects.all()
     serializer_class = OrderDetailSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        if Order.objects.get(pk=self.request.data['order']).restaurant == Dish.objects.get(
+                pk=self.request.data['dish']).restaurant:
+            self.perform_create(serializer)
+            headers = self.get_success_headers(serializer.data)
+            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        return Response({"detail": "Input is not valid"}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class OrderDetailAPIUpdate(generics.RetrieveUpdateAPIView):
+    """OrderDetail update, ( ADMIN ONLY !)"""
     queryset = OrderDetail.objects.all()
     serializer_class = OrderDetailSerializer
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        if Order.objects.get(pk=self.request.data['order']).restaurant == Dish.objects.get(
+                pk=self.request.data['dish']).restaurant:
+            self.perform_update(serializer)
+
+            if getattr(instance, '_prefetched_objects_cache', None):
+                # If 'prefetch_related' has been applied to a queryset, we need to
+                # forcibly invalidate the prefetch cache on the instance.
+                instance._prefetched_objects_cache = {}
+
+            return Response(serializer.data)
+        return Response({"detail": "Input data for editing is not valid"}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class OrderDetailAPIDestroy(generics.RetrieveDestroyAPIView):
+    """OrderDetail update, ( ADMIN ONLY !)"""
     queryset = OrderDetail.objects.all()
     serializer_class = OrderDetailSerializer
+
+    def delete(self, request, *args, **kwargs):
+        instance = self.get_object()
+        instance.is_archive = True
+        instance.save()
+        return Response(status=status.HTTP_204_NO_CONTENT)
