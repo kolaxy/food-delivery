@@ -21,5 +21,7 @@ from backend import views
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', views.home),
-    path('api/', include('backend.urls'))
+    path('api/v1/', include('backend.urls')),
+    path('auth/', include('djoser.urls')),
+    path('auth/', include('djoser.urls.authtoken')),
 ]

@@ -12,22 +12,34 @@ from backend.views import (
     OrderAPIDestroy,
     OrderDetailAPIList,
     OrderDetailAPIUpdate,
-    OrderDetailAPIDestroy, DetailRestaurantAPIList,
+    OrderDetailAPIDestroy, RestaurantOrdersAPIList,
+    # DetailRestaurantAPIList,
 
     # RestaurantViewSet
 )
+from rest_framework_simplejwt.views import (
+    TokenRefreshView,
+    TokenObtainPairView,
+    TokenVerifyView,
+)
 
 urlpatterns = [
-    path("v1/restaurant/", RestaurantAPIList.as_view()),
-    path("v1/restaurant/<int:pk>/", DetailRestaurantAPIList.as_view()),
-    path("v1/restaurantdelete/<int:pk>/", RestaurantAPIDestroy.as_view()),
-    path("v1/dish/", DishAPIList.as_view()),
-    path("v1/dish/<int:pk>/", DishAPIUpdate.as_view()),
-    path("v1/dishdelete/<int:pk>/", DishAPIDestroy.as_view()),
-    path("v1/order/", OrderAPIList.as_view()),
-    path("v1/order/<int:pk>/", OrderAPIUpdate.as_view()),
-    path("v1/orderdelete/<int:pk>/", OrderAPIDestroy.as_view()),
-    path("v1/orderdetail/", OrderDetailAPIList.as_view()),
-    path("v1/orderdetail/<int:pk>/", OrderDetailAPIUpdate.as_view()),
-    path("v1/orderdetaildelete/<int:pk>/", OrderDetailAPIDestroy.as_view()),
+    path("restaurant/", RestaurantAPIList.as_view()),
+    path("restaurant/<int:pk>/", RestaurantAPIUpdate.as_view()),
+    path("restaurantorders/<int:pk>/", RestaurantOrdersAPIList.as_view()),
+    path("restaurantdelete/<int:pk>/", RestaurantAPIDestroy.as_view()),
+    path("dish/", DishAPIList.as_view()),
+    path("dish/<int:pk>/", DishAPIUpdate.as_view()),
+    path("dishdelete/<int:pk>/", DishAPIDestroy.as_view()),
+    path("order/", OrderAPIList.as_view()),
+    path("order/<int:pk>/", OrderAPIUpdate.as_view()),
+    path("orderdelete/<int:pk>/", OrderAPIDestroy.as_view()),
+    path("orderdetail/", OrderDetailAPIList.as_view()),
+    path("orderdetail/<int:pk>/", OrderDetailAPIUpdate.as_view()),
+    path("orderdetaildelete/<int:pk>/", OrderDetailAPIDestroy.as_view()),
+
+
+    # path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    # path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    # path('token/verify/', TokenVerifyView.as_view(), name='token_refresh'),
 ]

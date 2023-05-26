@@ -7,6 +7,7 @@ from django.core.serializers.json import DjangoJSONEncoder
 class Restaurant(models.Model):
     name = models.CharField(max_length=25)
     is_archive = models.BooleanField(default=False)
+    restaurateur = models.ForeignKey(User, on_delete=models.CASCADE, default=1)
 
     def __str__(self):
         return self.name
@@ -30,6 +31,7 @@ class Order(models.Model):
     phone = models.IntegerField()
     restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE)
     is_archive = models.BooleanField(default=False)
+    time = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f'Order №{self.pk}'
