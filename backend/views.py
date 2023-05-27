@@ -21,22 +21,29 @@ def home(request):
 
 
 class RestaurantAPIList(generics.ListCreateAPIView):
-    """Restaurants list ( ALL )"""
+    """Restaurants list ( ALL ) + CREATE ( SUPERUSER + USER.GROUPS REST )"""
     queryset = Restaurant.objects.filter(is_archive=False)
     serializer_class = RestaurantSerializer
+
+    def create(self, request, *args, **kwargs):
+        if 'restorators' in [i.name for i in self.request.user.groups.all()] or self.request.user.is_staff:
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            self.perform_create(serializer)
+            headers = self.get_success_headers(serializer.data)
+            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        raise PermissionDenied
 
 
 class RestaurantOrdersAPIList(generics.ListAPIView):
     """Restaurant menu ( + DISH objects) ( ALL )"""
-    queryset = Restaurant.objects.all()
+    queryset = Restaurant.objects.filter(is_archive=False)
     serializer_class = DetailRestaurantSerializer
 
     def get_queryset(self):
         if 'restorators' in [i.name for i in self.request.user.groups.all()] or self.request.user.is_staff:
             if self.request.user.is_staff:
                 return Restaurant.objects.filter(pk=self.kwargs['pk'], is_archive=False)
-            print(Restaurant.objects.filter(pk=self.kwargs['pk'], is_archive=False)[
-                      0].restaurateur.id == self.request.user.id)
             if Restaurant.objects.filter(pk=self.kwargs['pk'],
                                          is_archive=False).first().restaurateur.id == self.request.user.id:
                 return Restaurant.objects.filter(pk=self.kwargs['pk'], is_archive=False)
@@ -48,15 +55,20 @@ class RestaurantAPIUpdate(generics.RetrieveUpdateAPIView):
     queryset = Restaurant.objects.filter(is_archive=False)
     serializer_class = RestaurantSerializer
 
-    def get_queryset(self):
-        if 'restorators' in [i.name for i in self.request.user.groups.all()] or self.request.user.is_staff:
-            if self.request.user.is_staff:
-                return Restaurant.objects.filter(pk=self.kwargs['pk'], is_archive=False)
-            print(Restaurant.objects.filter(pk=self.kwargs['pk'], is_archive=False)[
-                      0].restaurateur.id == self.request.user.id)
-            if Restaurant.objects.filter(pk=self.kwargs['pk'],
-                                         is_archive=False).first().restaurateur.id == self.request.user.id:
-                return Restaurant.objects.filter(pk=self.kwargs['pk'], is_archive=False)
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        if (self.request.user.id == Restaurant.objects.get(pk=instance.pk).restaurateur.id and request.data[
+            'restaurateur'] == Restaurant.objects.get(pk=instance.pk).restaurateur.id) or self.request.user.is_staff:
+            self.perform_update(serializer)
+            if getattr(instance, '_prefetched_objects_cache', None):
+                # If 'prefetch_related' has been applied to a queryset, we need to
+                # forcibly invalidate the prefetch cache on the instance.
+                instance._prefetched_objects_cache = {}
+
+            return Response(serializer.data)
         raise PermissionDenied
 
 
@@ -75,7 +87,7 @@ class RestaurantAPIDestroy(generics.RetrieveDestroyAPIView):
 
 class DishAPIList(generics.ListCreateAPIView):
     """Dish list + detail, ( ALL )"""
-    queryset = Dish.objects.all()
+    queryset = Dish.objects.filter(is_archive=False)
     serializer_class = DishSerializer
 
     def get_queryset(self):
@@ -88,16 +100,15 @@ class DishAPIList(generics.ListCreateAPIView):
         serializer.is_valid(raise_exception=True)
         if Restaurant.objects.get(
                 pk=self.request.data['restaurant']).id == self.request.user.id or self.request.user.is_staff:
-            self.perform_create(serializer)
+            # self.perform_create(serializer)
             headers = self.get_success_headers(serializer.data)
             return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
         raise PermissionDenied
 
 
-#################################################################################################################################################################
 class DishAPIUpdate(generics.RetrieveUpdateAPIView):
     """Dish update ( ADMIN + RESTAURANT USER )"""
-    queryset = Dish.objects.all()
+    queryset = Dish.objects.filter(is_archive=False)
     serializer_class = DishSerializer
 
     def update(self, request, *args, **kwargs):
@@ -135,7 +146,7 @@ class DishAPIDestroy(generics.RetrieveDestroyAPIView):
 class OrderAPIList(generics.ListCreateAPIView):
     """Order lists ( user's BY USER ID, all restaurant id BY RESTAURANT ID, all for ADMIN )
     + BOOL FALSE with ?is_archive=1"""
-    queryset = Order.objects.all()
+    queryset = Order.objects.filter(is_archive=False)
     serializer_class = OrderSerializer
 
     def get_queryset(self):
@@ -149,9 +160,10 @@ class OrderAPIList(generics.ListCreateAPIView):
 
 class OrderAPIUpdate(generics.RetrieveUpdateAPIView):
     """Order detail ( + Dishes ), ( YES to user BY USER ID, YES to restaurant BY RESTAURANT ID, YES for ADMIN ) """
-    queryset = Order.objects.all()
+    queryset = Order.objects.filter(is_archive=False)
     serializer_class = OrderSerializer
     permission_classes = IsAdminUser
+
     # def update(self, request, *args, **kwargs):
     #     partial = kwargs.pop('partial', False)
     #     instance = self.get_object()
@@ -187,7 +199,7 @@ class OrderAPIDestroy(generics.RetrieveDestroyAPIView):
 
 class OrderDetailAPIList(generics.ListCreateAPIView):
     """OrderDetail create ( YES to user BY USER ID, YES to restaurant BY RESTAURANT ID, YES for ADMIN )"""
-    queryset = OrderDetail.objects.all()
+    queryset = OrderDetail.objects.filter(is_archive=False)
     serializer_class = OrderDetailSerializer
 
     def create(self, request, *args, **kwargs):
