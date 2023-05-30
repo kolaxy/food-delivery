@@ -20,6 +20,7 @@ create/update/delete dishes.
 - Djoser 2.2.0
 - PostgreSQL
 - pip
+- drf-spectacular 0.26.2
 
 ## Run
 

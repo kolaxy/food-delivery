@@ -163,7 +163,7 @@ class OrderAPIUpdate(generics.RetrieveUpdateAPIView):
     """Order detail ( + Dishes ), ( YES to user BY USER ID, YES to restaurant BY RESTAURANT ID, YES for ADMIN ) """
     queryset = Order.objects.filter(is_archive=False)
     serializer_class = OrderSerializer
-    permission_classes = IsAdminUser
+    permission_classes = (IsAdminUser,)
 
     # def update(self, request, *args, **kwargs):
     #     partial = kwargs.pop('partial', False)
@@ -218,7 +218,7 @@ class OrderDetailAPIUpdate(generics.RetrieveUpdateAPIView):
     """OrderDetail update, ( ADMIN ONLY !)"""
     queryset = OrderDetail.objects.all()
     serializer_class = OrderDetailSerializer
-    permission_classes = IsAdminUser
+    permission_classes = (IsAdminUser,)
 
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
@@ -242,7 +242,7 @@ class OrderDetailAPIDestroy(generics.RetrieveDestroyAPIView):
     """OrderDetail update, ( ADMIN ONLY !)"""
     queryset = OrderDetail.objects.all()
     serializer_class = OrderDetailSerializer
-    permission_classes = IsAdminUser
+    permission_classes = (IsAdminUser,)
 
     def delete(self, request, *args, **kwargs):
         instance = self.get_object()
