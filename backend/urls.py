@@ -24,20 +24,19 @@ from rest_framework_simplejwt.views import (
 )
 
 urlpatterns = [
-    path("restaurant/", RestaurantAPIList.as_view()),
-    path("restaurant/<int:pk>/", RestaurantAPIUpdate.as_view()),
-    path("restaurantorders/<int:pk>/", RestaurantOrdersAPIList.as_view()),
-    path("restaurantdelete/<int:pk>/", RestaurantAPIDestroy.as_view()),
-    path("dish/", DishAPIList.as_view()),
-    path("dish/<int:pk>/", DishAPIUpdate.as_view()),
-    path("dishdelete/<int:pk>/", DishAPIDestroy.as_view()),
-    path("order/", OrderAPIList.as_view()),
-    path("order/<int:pk>/", OrderAPIUpdate.as_view()),
-    path("orderdelete/<int:pk>/", OrderAPIDestroy.as_view()),
-    path("orderdetail/", OrderDetailAPIList.as_view()),
-    path("orderdetail/<int:pk>/", OrderDetailAPIUpdate.as_view()),
-    path("orderdetaildelete/<int:pk>/", OrderDetailAPIDestroy.as_view()),
-
+    path("restaurant/", RestaurantAPIList.as_view(), name="restaurant"),
+    path("restaurant/<int:pk>/", RestaurantAPIUpdate.as_view(), name="restaurant_detail"),
+    path("restaurantorders/<int:pk>/", RestaurantOrdersAPIList.as_view(), name="restaurant_orders_filter"),
+    path("restaurantdelete/<int:pk>/", RestaurantAPIDestroy.as_view(), name="restaurant_delete"),
+    path("dish/", DishAPIList.as_view(), name="dish"),
+    path("dish/<int:pk>/", DishAPIUpdate.as_view(), name="dish_detail"),
+    path("dishdelete/<int:pk>/", DishAPIDestroy.as_view(), name="dish_delete"),
+    path("order/", OrderAPIList.as_view(), name="order"),
+    path("order/<int:pk>/", OrderAPIUpdate.as_view(), name="order_detail"),
+    path("orderdelete/<int:pk>/", OrderAPIDestroy.as_view(), name="order_delete"),
+    path("orderdetail/", OrderDetailAPIList.as_view(), name="orderdetail"),
+    path("orderdetail/<int:pk>/", OrderDetailAPIUpdate.as_view(), name="orderdetail_detail"),
+    path("orderdetaildelete/<int:pk>/", OrderDetailAPIDestroy.as_view(), name="orderdetail_delete"),
 
     # path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     # path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),

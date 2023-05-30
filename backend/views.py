@@ -99,7 +99,8 @@ class DishAPIList(generics.ListCreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         if Restaurant.objects.get(
-                pk=self.request.data['restaurant']).id == self.request.user.id or self.request.user.is_staff:
+                pk=self.request.data[
+                    'restaurant']).restaurateur.id == self.request.user.id or self.request.user.is_staff:
             # self.perform_create(serializer)
             headers = self.get_success_headers(serializer.data)
             return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
@@ -114,8 +115,8 @@ class DishAPIUpdate(generics.RetrieveUpdateAPIView):
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
-        if instance.restaurant.id == request.data['restaurant'] and instance.restaurant.id == User.objects.get(
-                pk=Restaurant.objects.get(pk=instance.restaurant.id).id).id or self.request.user.is_staff:
+        if (instance.restaurant.id == int(request.data['restaurant']) and User.objects.get(pk=Restaurant.objects.get(
+                pk=instance.restaurant.id).restaurateur.id).id == self.request.user.id) or self.request.user.is_staff:
             serializer = self.get_serializer(instance, data=request.data, partial=partial)
             serializer.is_valid(raise_exception=True)
             self.perform_update(serializer)
