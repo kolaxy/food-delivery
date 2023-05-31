@@ -29,23 +29,27 @@ Start web application and database in Docker
 ### Clone project from git via ssh
 
 ```commandline
-
+git clone git@github.com:kolaxy/library.git
 ```
 
 ### Cd into project folder
 
 ```commandline
-
+cd library
 ```
 
 ### Build application Docker image
 
 ```commandline
-
+docker build -t kolaxy/elib:1.0 .
 ```
 
 ### Run application and database containers
 
 ```commandline
-
+docker compose --profile backend up -d
 ```
+
+### Swagger documentation
+
+http://0.0.0.0:8000/api/v1/schema/docs/
