@@ -1,3 +1,5 @@
+import logging
+
 from django.shortcuts import render
 from django.http import HttpResponse
 from .models import Restaurant, Dish, Order, OrderDetail
@@ -14,9 +16,13 @@ from rest_framework.permissions import *
 from django.http import HttpResponseForbidden
 from rest_framework.exceptions import PermissionDenied
 from django.contrib.auth.models import User
+import logging
+
+logger = logging.getLogger('main')
 
 
 def home(request):
+    logger.info('HOME')
     return HttpResponse('<h1>FOOD DELIVERY</h1>')
 
 
@@ -28,10 +34,13 @@ class RestaurantAPIList(generics.ListCreateAPIView):
     def create(self, request, *args, **kwargs):
         if 'restorators' in [i.name for i in self.request.user.groups.all()] or self.request.user.is_staff:
             serializer = self.get_serializer(data=request.data)
+            if serializer.is_valid(raise_exception=False):
+                self.perform_create(serializer)
+                headers = self.get_success_headers(serializer.data)
+                return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+            logger.info(f'RestaurantAPIList -- {serializer.errors}')
             serializer.is_valid(raise_exception=True)
-            self.perform_create(serializer)
-            headers = self.get_success_headers(serializer.data)
-            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        logger.info(f'RestaurantAPIList -- permission denied')
         raise PermissionDenied
 
 
@@ -47,6 +56,7 @@ class RestaurantOrdersAPIList(generics.ListAPIView):
             if Restaurant.objects.filter(pk=self.kwargs['pk'],
                                          is_archive=False).first().restaurateur.id == self.request.user.id:
                 return Restaurant.objects.filter(pk=self.kwargs['pk'], is_archive=False)
+        logger.info(f'RestaurantOrdersAPIList -- permission denied')
         raise PermissionDenied
 
 
@@ -59,16 +69,24 @@ class RestaurantAPIUpdate(generics.RetrieveUpdateAPIView):
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
-        serializer.is_valid(raise_exception=True)
-        if (self.request.user.id == Restaurant.objects.get(pk=instance.pk).restaurateur.id and request.data[
-            'restaurateur'] == Restaurant.objects.get(pk=instance.pk).restaurateur.id) or self.request.user.is_staff:
-            self.perform_update(serializer)
-            if getattr(instance, '_prefetched_objects_cache', None):
-                # If 'prefetch_related' has been applied to a queryset, we need to
-                # forcibly invalidate the prefetch cache on the instance.
-                instance._prefetched_objects_cache = {}
+        if serializer.is_valid(raise_exception=True):
+            if (self.request.user.id == Restaurant.objects.get(pk=instance.pk).restaurateur.id and request.data[
+                'restaurateur'] == Restaurant.objects.get(
+                pk=instance.pk).restaurateur.id) or self.request.user.is_staff:
+                self.perform_update(serializer)
+                if getattr(instance, '_prefetched_objects_cache', None):
+                    # If 'prefetch_related' has been applied to a queryset, we need to
+                    # forcibly invalidate the prefetch cache on the instance.
+                    instance._prefetched_objects_cache = {}
 
-            return Response(serializer.data)
+                return Response(serializer.data)
+            else:
+                logger.info(
+                    f'RestaurantAPIUpdate -- instance : {instance.values} , request : {request.data}. ID does not match')
+        else:
+            logger.info(f'RestaurantAPIList -- {serializer.errors}')
+            serializer.is_valid(raise_exception=True)
+        logger.info(f'RestaurantAPIUpdate -- permission denied')
         raise PermissionDenied
 
 
@@ -97,13 +115,16 @@ class DishAPIList(generics.ListCreateAPIView):
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid(raise_exception=False):
+            if Restaurant.objects.get(
+                    pk=self.request.data[
+                        'restaurant']).restaurateur.id == self.request.user.id or self.request.user.is_staff:
+                self.perform_create(serializer)
+                headers = self.get_success_headers(serializer.data)
+                return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
         serializer.is_valid(raise_exception=True)
-        if Restaurant.objects.get(
-                pk=self.request.data[
-                    'restaurant']).restaurateur.id == self.request.user.id or self.request.user.is_staff:
-            # self.perform_create(serializer)
-            headers = self.get_success_headers(serializer.data)
-            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        logger.info(
+            f'ListCreateAPIView -- permission denied. restaurateur id = {Restaurant.objects.get(pk=self.request.data["restaurant"]).restaurateur.id}, user id = {self.request.user.id} ')
         raise PermissionDenied
 
 
@@ -115,17 +136,21 @@ class DishAPIUpdate(generics.RetrieveUpdateAPIView):
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
-        if (instance.restaurant.id == int(request.data['restaurant']) and User.objects.get(pk=Restaurant.objects.get(
-                pk=instance.restaurant.id).restaurateur.id).id == self.request.user.id) or self.request.user.is_staff:
-            serializer = self.get_serializer(instance, data=request.data, partial=partial)
-            serializer.is_valid(raise_exception=True)
-            self.perform_update(serializer)
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        if serializer.is_valid(raise_exception=False):
+            if (instance.restaurant.id == int(request.data['restaurant']) and User.objects.get(
+                    pk=Restaurant.objects.get(
+                        pk=instance.restaurant.id).restaurateur.id).id == self.request.user.id) or self.request.user.is_staff:
+                self.perform_update(serializer)
 
-            if getattr(instance, '_prefetched_objects_cache', None):
-                # If 'prefetch_related' has been applied to a queryset, we need to
-                # forcibly invalidate the prefetch cache on the instance.
-                instance._prefetched_objects_cache = {}
-            return Response(serializer.data)
+                if getattr(instance, '_prefetched_objects_cache', None):
+                    # If 'prefetch_related' has been applied to a queryset, we need to
+                    # forcibly invalidate the prefetch cache on the instance.
+                    instance._prefetched_objects_cache = {}
+                return Response(serializer.data)
+            logger.info(f'DishAPIUpdate -- CHECK permissions and entered data : {request.data}, {self.request.user.id}')
+        else:
+            logger.info(f'DishAPIUpdate -- {serializer.errors}')
         raise PermissionDenied
 
 
@@ -141,6 +166,7 @@ class DishAPIDestroy(generics.RetrieveDestroyAPIView):
             instance.is_archive = True
             instance.save()
             return Response(status=status.HTTP_204_NO_CONTENT)
+        logger.info(f'DishAPIUpdate -- permission denied')
         raise PermissionDenied
 
 
@@ -193,8 +219,9 @@ class OrderAPIDestroy(generics.RetrieveDestroyAPIView):
         instance = self.get_object()
         if instance.restaurant == Restaurant.objects.get(restaurateur=self.request.user) or self.request.user.is_staff:
             instance.is_archive = True
-            # instance.save()
+            instance.save()
             return Response(status=status.HTTP_204_NO_CONTENT)
+        logger.info(f'DishAPIUpdate -- permission denied')
         raise PermissionDenied
 
 
@@ -205,12 +232,20 @@ class OrderDetailAPIList(generics.ListCreateAPIView):
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        if Order.objects.get(pk=self.request.data['order']).restaurant == Dish.objects.get(
-                pk=self.request.data['dish']).restaurant:
-            self.perform_create(serializer)
-            headers = self.get_success_headers(serializer.data)
-            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        if serializer.is_valid(raise_exception=False):
+            if Order.objects.get(pk=self.request.data['order']).restaurant == Dish.objects.get(
+                    pk=self.request.data['dish']).restaurant:
+                self.perform_create(serializer)
+                headers = self.get_success_headers(serializer.data)
+                return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+            else:
+                logger.info(
+                    f'''DishAPIUpdate -- You tried to create item with Restaurant id {Order.objects.get(pk=self.request.data['order']).restaurant}
+                while it is {Dish.objects.get(
+                        pk=self.request.data['dish']).restaurant}''')
+        else:
+            logger.info(f'DishAPIUpdate -- {serializer.errors}')
+            serializer.is_valid(raise_exception=True)
         return Response({"detail": "Input is not valid"}, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -224,17 +259,17 @@ class OrderDetailAPIUpdate(generics.RetrieveUpdateAPIView):
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
-        serializer.is_valid(raise_exception=True)
-        if Order.objects.get(pk=self.request.data['order']).restaurant == Dish.objects.get(
-                pk=self.request.data['dish']).restaurant:
+        if serializer.is_valid(raise_exception=False):
             self.perform_update(serializer)
 
             if getattr(instance, '_prefetched_objects_cache', None):
                 # If 'prefetch_related' has been applied to a queryset, we need to
                 # forcibly invalidate the prefetch cache on the instance.
                 instance._prefetched_objects_cache = {}
-
-            return Response(serializer.data)
+                return Response(serializer.data)
+        else:
+            serializer.is_valid(raise_exception=True)
+            logger.info(f'DishAPIUpdate -- {serializer.errors}')
         return Response({"detail": "Input data for editing is not valid"}, status=status.HTTP_400_BAD_REQUEST)
 
 
