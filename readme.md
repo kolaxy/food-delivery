@@ -29,19 +29,19 @@ Start web application and database in Docker
 ### Clone project from git via ssh
 
 ```commandline
-git clone git@github.com:kolaxy/library.git
+git clone git@github.com:kolaxy/food-delivery.git
 ```
 
 ### Cd into project folder
 
 ```commandline
-cd library
+cd food_delivery
 ```
 
 ### Build application Docker image
 
 ```commandline
-docker build -t kolaxy/elib:1.0 .
+docker build -t kolaxy/food:1.0 .
 ```
 
 ### Run application and database containers
