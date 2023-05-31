@@ -10,8 +10,6 @@ defusedxml==0.7.1
 Django==4.2.1
 django-templated-mail==1.1.1
 djangorestframework==3.14.0
-djangorestframework-jwt==1.11.0
-djangorestframework-simplejwt==5.2.2
 djoser==2.2.0
 drf-spectacular==0.26.2
 idna==3.4
@@ -19,13 +17,14 @@ inflection==0.5.1
 itypes==1.2.0
 Jinja2==3.1.2
 jsonschema==4.17.3
+load-dotenv==0.1.0
 MarkupSafe==2.1.2
 oauthlib==3.2.2
 packaging==23.1
 psycopg2-binary==2.9.6
 pycparser==2.21
-PyJWT==1.7.1
 pyrsistent==0.19.3
+python-dotenv==1.0.0
 python3-openid==3.2.0
 pytz==2023.3
 PyYAML==6.0

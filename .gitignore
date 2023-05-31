@@ -6,3 +6,4 @@ venv/
 /static
 .DS_Store
 .idea/
+.env
