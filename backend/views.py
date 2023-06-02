@@ -1,6 +1,6 @@
 import logging
 
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from django.http import HttpResponse
 from .models import Restaurant, Dish, Order, OrderDetail
 from rest_framework import generics, viewsets
@@ -82,7 +82,7 @@ class RestaurantAPIUpdate(generics.RetrieveUpdateAPIView):
                 return Response(serializer.data)
             else:
                 logger.info(
-                    f'RestaurantAPIUpdate -- instance : {instance.values} , request : {request.data}. ID does not match')
+                    f'RestaurantAPIUpdate -- instance : {instance} , request : {request.data}. ID does not match')
         else:
             logger.info(f'RestaurantAPIList -- {serializer.errors}')
             serializer.is_valid(raise_exception=True)
@@ -161,8 +161,9 @@ class DishAPIDestroy(generics.RetrieveDestroyAPIView):
 
     def delete(self, request, *args, **kwargs):
         instance = self.get_object()
-        if instance.restaurant.id == request.data['restaurant'] and instance.restaurant.id == User.objects.get(
-                pk=Restaurant.objects.get(pk=instance.restaurant.id).id).id or self.request.user.is_staff:
+        if self.request.user.is_staff or ('restorators' in [i.name for i in
+                                                            self.request.user.groups.all()] and instance.restaurant.id == Restaurant.objects.get(
+            restaurateur=self.request.user.id).id):
             instance.is_archive = True
             instance.save()
             return Response(status=status.HTTP_204_NO_CONTENT)
@@ -189,25 +190,55 @@ class OrderAPIUpdate(generics.RetrieveUpdateAPIView):
     """Order detail ( + Dishes ), ( YES to user BY USER ID, YES to restaurant BY RESTAURANT ID, YES for ADMIN ) """
     queryset = Order.objects.filter(is_archive=False)
     serializer_class = OrderSerializer
-    permission_classes = (IsAdminUser,)
 
-    # def update(self, request, *args, **kwargs):
-    #     partial = kwargs.pop('partial', False)
-    #     instance = self.get_object()
-    #     if instance.restaurant.id == request.data['restaurant'] and instance.restaurant.id == User.objects.get(
-    #             pk=Restaurant.objects.get(pk=instance.restaurant.id).id).id or self.request.user.is_staff:
-    #         serializer = self.get_serializer(instance, data=request.data, partial=partial)
-    #         serializer.is_valid(raise_exception=True)
-    #         self.perform_update(serializer)
-    #
-    #         if getattr(instance, '_prefetched_objects_cache', None):
-    #             # If 'prefetch_related' has been applied to a queryset, we need to
-    #             # forcibly invalidate the prefetch cache on the instance.
-    #             instance._prefetched_objects_cache = {}
-    #
-    #         return Response(serializer.data)
-    #     raise PermissionDenied
-    # КТО ДОЛЖЕН ИЗМЕНЯТЬ? НИКТО. ТОЛЬКО АДМИН МОЖЕТ УДАЛЯТЬ == СТАВИТЬ БУЛЕВО ЗНАЧЕНИЕ IS ARCHIVE НА TRUE СНИЗУ
+    def get_object(self):
+        """
+        Returns the object the view is displaying.
+
+        You may want to override this if you need to provide non-standard
+        queryset lookups.  Eg if objects are referenced using multiple
+        keyword arguments in the url conf.
+        """
+        queryset = self.filter_queryset(self.get_queryset())
+
+        # Perform the lookup filtering.
+        lookup_url_kwarg = self.lookup_url_kwarg or self.lookup_field
+
+        assert lookup_url_kwarg in self.kwargs, (
+                'Expected view %s to be called with a URL keyword argument '
+                'named "%s". Fix your URL conf, or set the `.lookup_field` '
+                'attribute on the view correctly.' %
+                (self.__class__.__name__, lookup_url_kwarg)
+        )
+
+        filter_kwargs = {self.lookup_field: self.kwargs[lookup_url_kwarg]}
+        obj = get_object_or_404(queryset, **filter_kwargs)
+
+        # May raise a permission denied
+        self.check_object_permissions(self.request, obj)
+        if self.request.user.id in (
+                obj.customer, User.objects.get(pk=obj.restaurant.restaurateur.id).id) or self.request.user.is_staff:
+            return obj
+        logger.info(
+            f'OrderAPIUpdate -- get_object -- user id {self.request.user.id} , object customer , restaurateur : {obj.customer, User.objects.get(pk=obj.restaurant.restaurateur.id).id} ')
+        raise PermissionDenied
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        if self.request.user.is_staff:
+            serializer = self.get_serializer(instance, data=request.data, partial=partial)
+            serializer.is_valid(raise_exception=True)
+            self.perform_update(serializer)
+
+            if getattr(instance, '_prefetched_objects_cache', None):
+                # If 'prefetch_related' has been applied to a queryset, we need to
+                # forcibly invalidate the prefetch cache on the instance.
+                instance._prefetched_objects_cache = {}
+
+            return Response(serializer.data)
+        logger.info(f'User is not admin ( id = {self.request.user.id}')
+        raise PermissionDenied
 
 
 class OrderAPIDestroy(generics.RetrieveDestroyAPIView):
@@ -217,11 +248,13 @@ class OrderAPIDestroy(generics.RetrieveDestroyAPIView):
 
     def delete(self, request, *args, **kwargs):
         instance = self.get_object()
-        if instance.restaurant == Restaurant.objects.get(restaurateur=self.request.user) or self.request.user.is_staff:
+        if self.request.user.is_staff or ('restorators' in [i.name for i in
+                                                            self.request.user.groups.all()] and instance.restaurant == Restaurant.objects.get(
+            restaurateur=self.request.user)):
             instance.is_archive = True
             instance.save()
             return Response(status=status.HTTP_204_NO_CONTENT)
-        logger.info(f'DishAPIUpdate -- permission denied')
+        logger.info(f'OrderAPIDestroy -- permission denied. user id : {self.request.user.id}')
         raise PermissionDenied
 
 
@@ -253,24 +286,58 @@ class OrderDetailAPIUpdate(generics.RetrieveUpdateAPIView):
     """OrderDetail update, ( ADMIN ONLY !)"""
     queryset = OrderDetail.objects.all()
     serializer_class = OrderDetailSerializer
-    permission_classes = (IsAdminUser,)
+
+    # permission_classes = (IsAdminUser,)
+    def get_object(self):
+        """
+        Returns the object the view is displaying.
+
+        You may want to override this if you need to provide non-standard
+        queryset lookups.  Eg if objects are referenced using multiple
+        keyword arguments in the url conf.
+        """
+        queryset = self.filter_queryset(self.get_queryset())
+
+        # Perform the lookup filtering.
+        lookup_url_kwarg = self.lookup_url_kwarg or self.lookup_field
+
+        assert lookup_url_kwarg in self.kwargs, (
+                'Expected view %s to be called with a URL keyword argument '
+                'named "%s". Fix your URL conf, or set the `.lookup_field` '
+                'attribute on the view correctly.' %
+                (self.__class__.__name__, lookup_url_kwarg)
+        )
+
+        filter_kwargs = {self.lookup_field: self.kwargs[lookup_url_kwarg]}
+        obj = get_object_or_404(queryset, **filter_kwargs)
+
+        # May raise a permission denied
+        self.check_object_permissions(self.request, obj)
+        try:
+            if self.request.user.is_staff or self.request.user.id == (
+                    Restaurant.objects.get(pk=(Dish.objects.get(pk=self.kwargs['pk']).restaurant).id)).restaurateur.id:
+                return obj
+            raise PermissionDenied
+        except:
+            raise PermissionDenied
 
     def update(self, request, *args, **kwargs):
-        partial = kwargs.pop('partial', False)
-        instance = self.get_object()
-        serializer = self.get_serializer(instance, data=request.data, partial=partial)
-        if serializer.is_valid(raise_exception=False):
-            self.perform_update(serializer)
-
-            if getattr(instance, '_prefetched_objects_cache', None):
-                # If 'prefetch_related' has been applied to a queryset, we need to
-                # forcibly invalidate the prefetch cache on the instance.
-                instance._prefetched_objects_cache = {}
+        if self.request.user.is_staff:
+            partial = kwargs.pop('partial', False)
+            instance = self.get_object()
+            serializer = self.get_serializer(instance, data=request.data, partial=partial)
+            if serializer.is_valid(raise_exception=False):
+                self.perform_update(serializer)
+                if getattr(instance, '_prefetched_objects_cache', None):
+                    # If 'prefetch_related' has been applied to a queryset, we need to
+                    # forcibly invalidate the prefetch cache on the instance.
+                    instance._prefetched_objects_cache = {}
                 return Response(serializer.data)
-        else:
+            # serializer.is_valid(raise_exception=False)
+            logger.info(f'OrderDetailAPIUpdate --{serializer.errors}')
             serializer.is_valid(raise_exception=True)
-            logger.info(f'DishAPIUpdate -- {serializer.errors}')
-        return Response({"detail": "Input data for editing is not valid"}, status=status.HTTP_400_BAD_REQUEST)
+        logger.info(f'OrderDetailAPIUpdate -- ID {self.request.user.id}. Not admin to update.')
+        raise PermissionDenied
 
 
 class OrderDetailAPIDestroy(generics.RetrieveDestroyAPIView):
